@@ -61,7 +61,6 @@ The log format is TSV (one record per line) and includes timestamp, player, acti
 
 ## Compatibility
 
-- Recommended: Paper 1.21.1+ (api-version 1.21)
 - Dependencies:
   - PacketEvents (used for THROW mode packet-based triggering)
   - NBTAPI (Item-NBT-API plugin for reading/writing entity NBT)
