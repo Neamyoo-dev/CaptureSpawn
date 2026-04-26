@@ -1,0 +1,31 @@
+name: CaptureSpawn
+version: '26.4.1'
+main: cn.oneachina.captureSpawn.CaptureSpawn
+api-version: '1.21'
+prefix: CaptureSpwan
+authors: [ oneachina ]
+depend: [NBTAPI, packetevents]
+commands:
+  capturespawn:
+    description: CaptureSpawn main command
+    usage: /capturespawn reload
+    aliases: [cspawn]
+permissions:
+  capturespawn.craft:
+    default: true
+    description: Allows crafting the pokeball item.
+  capturespawn.capture:
+    default: true
+    description: Allows capturing mobs into pokeball.
+  capturespawn.release:
+    default: true
+    description: Allows releasing mobs from pokeball.
+  capturespawn.bypass.blacklist:
+    default: op
+    description: Bypass capture blacklist types.
+  capturespawn.reload:
+    default: op
+    description: Allows reloading CaptureSpawn config and listeners.
+  capturespawn.log:
+    default: op
+    description: Allows querying CaptureSpawn release/capture logs.

@@ -1,0 +1,133 @@
+interaction-mode: THROW
+
+item:
+  empty:
+    material: PLAYER_HEAD
+    head:
+      texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTY4NGRjNTc5ZjU3OWIwNDYwZGRhMmYyZmFiNjE1NzU0YmNiYmZhM2NjNjI2NjNkMTBhYzkzMjk5MGNhZTE1OSJ9fX0="
+    name: "&6&lPokeball"
+    lore:
+      - "&7右键生物进行捕捉"
+      - "&7再次右键放出"
+    glow: true
+    custom-model-data: 0
+  filled:
+    material: PLAYER_HEAD
+    head:
+      texture: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTY4NGRjNTc5ZjU3OWIwNDYwZGRhMmYyZmFiNjE1NzU0YmNiYmZhM2NjNjI2NjNkMTBhYzkzMjk5MGNhZTE1OSJ9fX0="
+    name: "&6&lPokeball"
+    lore:
+      - "&7已捕获: &f{entity_display}"
+      - "&8----------------"
+      - "{extra}"
+      - "&8----------------"
+      - "&7右键投掷放出"
+    glow: true
+    custom-model-data: 0
+
+throw:
+  enabled: true
+  max-life-ticks: 80
+  speed: 1.35
+  gravity: 0.045
+  capture-animation-ticks: 6
+  physics:
+    air-drag: 0.99
+    bounce:
+      restitution: 0.62
+      friction: 0.2
+      max-bounces: 3
+      min-speed: 0.25
+  trail:
+    enabled: true
+  bounce:
+    enabled: true
+    factor: 0.62
+  roll:
+    enabled: true
+    ticks: 8
+    damping: 0.82
+    initial-scale: 0.55
+  impact:
+    enabled: true
+
+release:
+  require-permission: true
+  cooldown-ticks: 8
+  enabled-worlds: []
+  disabled-worlds: []
+  safe-spawn: true
+  consume-filled: false
+  drop:
+    enabled: true
+    require-on-ground: true
+    max-wait-ticks: 40
+
+capture:
+  require-permission: true
+  cooldown-ticks: 8
+  enabled-worlds: []
+  disabled-worlds: []
+  whitelist-types: []
+  blacklist-types:
+    - PLAYER
+    - ARMOR_STAND
+    - ENDER_DRAGON
+    - WITHER
+
+storage:
+  nbt-format: GZIP_BASE64
+  max-bytes: 131072
+
+logging:
+  enabled: true
+  file: "logs/ball-%DATE%.log"
+  flush-interval-ticks: 20
+  max-queue: 10000
+
+protection:
+  enabled: true
+  capture-requires-build: true
+  release-requires-build: true
+
+recipe:
+  enabled: true
+  key: "pokeball"
+  shaped:
+    shape:
+      - "GIG"
+      - "IEI"
+      - "GIG"
+    ingredients:
+      G: GLASS
+      I: IRON_INGOT
+      E: ENDER_PEARL
+    amount: 1
+
+craft:
+  require-permission: false
+  permission: "capturespawn.craft"
+
+messages:
+  capture:
+    success: "&a捕捉成功。"
+    cooldown: "&e冷却中，请稍后再试。"
+    no-permission: "&c你没有捕捉权限。"
+    invalid-world: "&c当前世界不允许捕捉。"
+    type-blocked: "&c该生物不可捕捉。"
+    nbt-failed: "&c捕捉失败：NBT 读取失败。"
+    too-large: "&c捕捉失败：数据过大。"
+    failed: "&c捕捉失败。"
+  release:
+    success: "&a放出成功。"
+    cooldown: "&e冷却中，请稍后再试。"
+    no-permission: "&c你没有放出权限。"
+    invalid-world: "&c当前世界不允许放出。"
+    invalid-data: "&c放出失败：球内数据损坏。"
+    no-space: "&c放出失败：没有安全空间。"
+    spawn-failed: "&c放出失败：无法生成实体。"
+    nbt-failed: "&c放出失败：NBT 恢复失败。"
+  ball-cannot-place: "&e精灵球不能被放置为方块。"
+  protection:
+    capture: "&c该区域不允许捕捉。"
+    release: "&c该区域不允许放出。"
