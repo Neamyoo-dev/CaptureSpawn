@@ -28,10 +28,13 @@ dependencies {
 
 tasks {
     runServer {
-        // Configure the Minecraft version for our task.
-        // This is the only required configuration besides applying the plugin.
-        // Your plugin's jar (or shadowJar if present) will be used automatically.
         minecraftVersion("26.1.2")
+        downloadPlugins {
+            modrinth ("nbtapi", "2.15.7")
+            modrinth ("packetevents", "2.12.1+spigot")
+            modrinth("viaversion", "5.9.0")
+            modrinth("viabackwards", "5.9.0")
+        }
     }
 }
 
