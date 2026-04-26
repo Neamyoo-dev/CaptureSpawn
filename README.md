@@ -2,8 +2,9 @@
 
 A Paper plugin that lets you “capture mobs into a Pokéball” and release them via right-click or a physics-based throw. It preserves entity NBT as much as possible and simulates more realistic projectile behavior (gravity / bounces / rolling / lifetime).
 
-- Runtime: Paper,  Java 25
+- Runtime: Paper 1.21.1+, Java 21
 - Required dependencies: PacketEvents, NBTAPI (Item-NBT-API plugin)
+- License: MIT ([LICENSE](LICENSE))
 
 ## Features
 
