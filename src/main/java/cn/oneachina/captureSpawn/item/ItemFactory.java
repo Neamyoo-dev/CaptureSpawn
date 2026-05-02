@@ -1,19 +1,26 @@
 package cn.oneachina.captureSpawn.item;
 
 import cn.oneachina.captureSpawn.CaptureSpawn;
-import org.bukkit.ChatColor;
+import com.destroystokyo.paper.profile.PlayerProfile;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.profile.PlayerProfile;
+import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 import org.bukkit.profile.PlayerTextures;
 import org.bukkit.persistence.PersistentDataType;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.entity.EntityType;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,6 +29,7 @@ public final class ItemFactory {
     private final CaptureSpawn plugin;
     private final Keys keys;
     private static final Pattern TEXTURE_URL = Pattern.compile("\"url\"\\s*:\\s*\"([^\"]+)\"");
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
 
     public ItemFactory(CaptureSpawn plugin, Keys keys) {
         this.plugin = plugin;
@@ -36,7 +44,7 @@ public final class ItemFactory {
         return item;
     }
 
-    public ItemStack createFilledBall(String entityDisplay, List<String> extraLore, BallData data) {
+    public ItemStack createFilledBall(Component entityDisplay, List<Component> extraLore, BallData data) {
         ItemStack item = createConfiguredItem("item.filled", data, entityDisplay, extraLore);
         if (item == null) {
             item = new ItemStack(Material.PLAYER_HEAD);
@@ -44,7 +52,7 @@ public final class ItemFactory {
         return item;
     }
 
-    private ItemStack createConfiguredItem(String path, BallData data, String entityDisplay, List<String> extraLore) {
+    private ItemStack createConfiguredItem(String path, BallData data, Component entityDisplay, List<Component> extraLore) {
         ConfigurationSection section = plugin.getConfig().getConfigurationSection(path);
         if (section == null) {
             return null;
@@ -69,23 +77,20 @@ public final class ItemFactory {
 
         String name = section.getString("name");
         if (name != null && !name.isBlank()) {
-            meta.setDisplayName(colorize(applyPlaceholders(name, entityDisplay, data)));
+            meta.displayName(renderTemplate(name, entityDisplay, entityTypeComponent(data)));
         }
 
         List<String> loreRaw = section.getStringList("lore");
-        if (loreRaw != null && !loreRaw.isEmpty()) {
-            List<String> lore = new ArrayList<>();
+        if (!loreRaw.isEmpty()) {
+            List<Component> lore = new ArrayList<>();
             for (String line : loreRaw) {
-                String replaced = applyPlaceholders(line, entityDisplay, data);
-                if ("{extra}".equals(replaced)) {
-                    for (String extra : extraLore) {
-                        lore.add(colorize(extra));
-                    }
+                if (line != null && line.trim().equals("{extra}")) {
+                    lore.addAll(extraLore);
                     continue;
                 }
-                lore.add(colorize(replaced));
+                lore.add(renderTemplate(line, entityDisplay, entityTypeComponent(data)));
             }
-            meta.setLore(lore);
+            meta.lore(lore);
         }
 
         boolean glow = section.getBoolean("glow", false);
@@ -96,7 +101,9 @@ public final class ItemFactory {
 
         int cmd = section.getInt("custom-model-data", 0);
         if (cmd > 0) {
-            meta.setCustomModelData(cmd);
+            CustomModelDataComponent component = meta.getCustomModelDataComponent();
+            component.setFloats(List.of((float) cmd));
+            meta.setCustomModelDataComponent(component);
         }
 
         meta.getPersistentDataContainer().set(keys.ball, PersistentDataType.BYTE, (byte) 1);
@@ -116,17 +123,54 @@ public final class ItemFactory {
         return item;
     }
 
-    private static String colorize(String input) {
-        return ChatColor.translateAlternateColorCodes('&', input);
+    private static Component entityTypeComponent(BallData data) {
+        if (data == null || data.entityType() == null || data.entityType().isBlank()) {
+            return Component.empty();
+        }
+        try {
+            EntityType type = EntityType.valueOf(data.entityType().trim().toUpperCase(Locale.ROOT));
+            return Component.translatable(type.translationKey());
+        } catch (Exception ex) {
+            return Component.text(data.entityType());
+        }
     }
 
-    private static String applyPlaceholders(String input, String entityDisplay, BallData data) {
-        String out = input;
-        if (entityDisplay != null) {
-            out = out.replace("{entity_display}", entityDisplay);
+    private static Component renderTemplate(String template, Component entityDisplay, Component entityType) {
+        if (template == null) {
+            return Component.empty();
         }
-        if (data.entityType() != null) {
-            out = out.replace("{entity_type}", data.entityType());
+        Component display = entityDisplay == null ? Component.empty() : entityDisplay;
+        Component type = entityType == null ? Component.empty() : entityType;
+
+        int idx = 0;
+        Component out = Component.empty();
+        while (idx < template.length()) {
+            int nextDisplay = template.indexOf("{entity_display}", idx);
+            int nextType = template.indexOf("{entity_type}", idx);
+            int next = -1;
+            boolean useDisplay = false;
+            if (nextDisplay != -1 && (nextType == -1 || nextDisplay < nextType)) {
+                next = nextDisplay;
+                useDisplay = true;
+            } else if (nextType != -1) {
+                next = nextType;
+            }
+            if (next == -1) {
+                out = out.append(LEGACY.deserialize(template.substring(idx)));
+                break;
+            }
+            if (next > idx) {
+                out = out.append(LEGACY.deserialize(template.substring(idx, next)));
+            }
+            out = out.append(useDisplay ? display : type);
+            idx = next + (useDisplay ? "{entity_display}".length() : "{entity_type}".length());
+        }
+
+        if (out instanceof TextComponent tc) {
+            String plain = PlainTextComponentSerializer.plainText().serialize(tc);
+            if (plain.isBlank()) {
+                return Component.empty();
+            }
         }
         return out;
     }
@@ -148,15 +192,15 @@ public final class ItemFactory {
             return;
         }
 
-        PlayerProfile profile = plugin.getServer().createPlayerProfile(UUID.randomUUID());
+        PlayerProfile profile = plugin.getServer().createProfile(UUID.randomUUID(), null);
         PlayerTextures textures = profile.getTextures();
         try {
-            textures.setSkin(new java.net.URL(url));
+            textures.setSkin(URI.create(url).toURL());
         } catch (Exception ignored) {
             return;
         }
         profile.setTextures(textures);
-        skullMeta.setOwnerProfile(profile);
+        skullMeta.setPlayerProfile(profile);
     }
 
     private static String extractTextureUrl(String base64Texture) {

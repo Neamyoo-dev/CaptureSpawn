@@ -90,7 +90,7 @@ public final class DirectInteractListener implements Listener {
             return;
         }
         if (plugin.getConfig().getBoolean("capture.require-permission", true)
-                && !player.hasPermission("capturespawn.capture")) {
+                && !player.hasPermission(resolvePerm("permissions.capture", "capturespawn.capture"))) {
             send(player, "messages.capture.no-permission", "&c你没有捕捉权限。");
             return;
         }
@@ -100,9 +100,7 @@ public final class DirectInteractListener implements Listener {
         }
         if (plugin.getConfig().getBoolean("protection.enabled", true)) {
             boolean requireBuild = plugin.getConfig().getBoolean("protection.capture-requires-build", false);
-            boolean allowed = requireBuild
-                    ? ProtectionHooks.canBuild(player, living.getLocation().getBlock())
-                    : ProtectionHooks.canInteractEntity(player, living);
+            boolean allowed = ProtectionHooks.canCapture(player, living, requireBuild);
             if (!allowed) {
                 send(player, "messages.protection.capture", "&c该区域不允许捕捉。");
                 logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), living.getLocation(), "DENIED", "protection"));
@@ -132,11 +130,6 @@ public final class DirectInteractListener implements Listener {
                 formatter.extraLoreLines(living),
                 filledData
         );
-        if (filledBall == null) {
-            send(player, "messages.capture.failed", "&c捕捉失败。");
-            logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), living.getLocation(), "FAIL", "build_item_failed"));
-            return;
-        }
 
         living.remove();
         replaceOneMainHandWith(player, filledBall);
@@ -175,7 +168,7 @@ public final class DirectInteractListener implements Listener {
             return;
         }
         if (plugin.getConfig().getBoolean("release.require-permission", true)
-                && !player.hasPermission("capturespawn.release")) {
+                && !player.hasPermission(resolvePerm("permissions.release", "capturespawn.release"))) {
             send(player, "messages.release.no-permission", "&c你没有放出权限。");
             return;
         }
@@ -191,11 +184,9 @@ public final class DirectInteractListener implements Listener {
         }
         if (plugin.getConfig().getBoolean("protection.enabled", true)) {
             boolean requireBuild = plugin.getConfig().getBoolean("protection.release-requires-build", false);
-            boolean allowed = requireBuild
-                    ? ProtectionHooks.canBuild(player, releaseLoc.getBlock())
-                    : ProtectionHooks.canInteractBlock(player, releaseLoc.getBlock(), BlockFace.UP);
+            boolean allowed = ProtectionHooks.canRelease(player, releaseLoc, requireBuild);
             if (!allowed) {
-                send(player, "messages.protection.release", "&c该区域不允许放出。");
+                send(player, "messages.release.spawn-denied", "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。");
                 logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), releaseLoc, "DENIED", "protection"));
                 return;
             }
@@ -216,6 +207,11 @@ public final class DirectInteractListener implements Listener {
         } catch (Exception ex) {
             send(player, "messages.release.spawn-failed", "&c放出失败：无法生成实体。");
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), releaseLoc, "FAIL", "spawn_failed"));
+            return;
+        }
+        if (spawned == null || !spawned.isValid() || spawned.isDead()) {
+            send(player, "messages.release.spawn-denied", "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。");
+            logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), releaseLoc, "DENIED", "spawn_denied"));
             return;
         }
 
@@ -295,7 +291,7 @@ public final class DirectInteractListener implements Listener {
         if (blacklist.isEmpty()) {
             return true;
         }
-        if (player.hasPermission("capturespawn.bypass.blacklist")) {
+        if (player.hasPermission(resolvePerm("permissions.bypass-blacklist", "capturespawn.bypass.blacklist"))) {
             return true;
         }
         Set<String> deny = blacklist.stream().map(s -> s.toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
@@ -377,6 +373,14 @@ public final class DirectInteractListener implements Listener {
             return;
         }
         player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
+    }
+
+    private String resolvePerm(String path, String fallback) {
+        String perm = plugin.getConfig().getString(path, fallback);
+        if (perm == null || perm.isBlank()) {
+            return fallback;
+        }
+        return perm;
     }
 }
 

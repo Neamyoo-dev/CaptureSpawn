@@ -2,7 +2,7 @@
 
 A Paper plugin that lets you “capture mobs into a Pokéball” and release them via right-click or a physics-based throw. It preserves entity NBT as much as possible and simulates more realistic projectile behavior (gravity / bounces / rolling / lifetime).
 
-- Runtime: Paper 1.21.1+, Java 21
+- Runtime: Paper 26.1.2+, Java 25
 - Required dependencies: PacketEvents, NBTAPI (Item-NBT-API plugin)
 - License: MIT ([LICENSE](LICENSE))
 
@@ -49,6 +49,10 @@ Default interaction mode is THROW (can be switched back to DIRECT in config).
 - `throw.physics.*`: air drag / bounce restitution / friction / max bounces / min-speed threshold
 - `storage.nbt-format: GZIP_BASE64` + `storage.max-bytes`: control payload size
 - `protection.capture-requires-build / protection.release-requires-build`: build-based checks
+- `protection.residence.*`: optional Residence checks
+  - Built-in flags: `capture-build-flags` / `release-build-flags` etc. (e.g. `build`, `use`)
+  - Custom flags: `protection.residence.custom.capture-flag` / `release-flag` (auto-registered on startup)
+  - `require-installed`: force Residence-only behavior when Residence is present/required
 - `logging.*`: local log enablement, filename pattern, flush interval, queue limit
 
 ## Local Logs

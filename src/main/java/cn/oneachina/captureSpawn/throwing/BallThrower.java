@@ -10,6 +10,7 @@ import cn.oneachina.captureSpawn.logging.BallLogService;
 import cn.oneachina.captureSpawn.nbt.NbtApiBridge;
 import cn.oneachina.captureSpawn.nbt.NbtPayloadCodec;
 import cn.oneachina.captureSpawn.protection.ProtectionHooks;
+import net.kyori.adventure.text.Component;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -67,65 +68,64 @@ public final class BallThrower {
         this.logService = logService;
     }
 
-    public boolean throwFromMainHand(Player player, EquipmentSlot hand) {
+    public void throwFromMainHand(Player player, EquipmentSlot hand) {
         if (hand != EquipmentSlot.HAND) {
-            return false;
+            return;
         }
 
         ItemStack held = player.getInventory().getItemInMainHand();
         BallData data = ballItemService.read(held);
         if (data == null) {
-            return false;
+            return;
         }
         if (!plugin.getConfig().getBoolean("throw.enabled", true)) {
-            return false;
+            return;
         }
 
         long now = System.currentTimeMillis();
         Long last = lastTriggerAt.get(player.getUniqueId());
         if (last != null && now - last < 120L) {
-            return false;
+            return;
         }
         lastTriggerAt.put(player.getUniqueId(), now);
 
         if (data.captured()) {
-            if (!checkWorldAllowed(player.getWorld(), "release")) {
+            if (checkWorldAllowed(player.getWorld(), "release")) {
                 send(player, "messages.release.invalid-world", "&c当前世界不允许放出。");
-                return false;
+                return;
             }
-            if (!checkCooldown(player)) {
+            if (checkCooldown(player)) {
                 send(player, "messages.release.cooldown", "&e冷却中，请稍后再试。");
-                return false;
+                return;
             }
             if (plugin.getConfig().getBoolean("release.require-permission", true)
                     && !player.hasPermission("capturespawn.release")) {
                 send(player, "messages.release.no-permission", "&c你没有放出权限。");
-                return false;
+                return;
             }
         } else {
-            if (!checkWorldAllowed(player.getWorld(), "capture")) {
+            if (checkWorldAllowed(player.getWorld(), "capture")) {
                 send(player, "messages.capture.invalid-world", "&c当前世界不允许捕捉。");
-                return false;
+                return;
             }
-            if (!checkCooldown(player)) {
+            if (checkCooldown(player)) {
                 send(player, "messages.capture.cooldown", "&e冷却中，请稍后再试。");
-                return false;
+                return;
             }
             if (plugin.getConfig().getBoolean("capture.require-permission", true)
                     && !player.hasPermission("capturespawn.capture")) {
                 send(player, "messages.capture.no-permission", "&c你没有捕捉权限。");
-                return false;
+                return;
             }
         }
 
         ItemStack removed = removeOneMainHand(player);
         if (removed == null) {
-            return false;
+            return;
         }
 
         launchProjectile(player, data, removed);
         markCooldown(player, data.captured());
-        return true;
     }
 
     private void launchProjectile(Player player, BallData data, ItemStack originalBall) {
@@ -142,9 +142,9 @@ public final class BallThrower {
         int rollTicksDefault = Math.max(2, plugin.getConfig().getInt("throw.roll.ticks", 8));
         double rollDamping = plugin.getConfig().getDouble("throw.roll.damping", 0.82);
         double rollInitialScale = plugin.getConfig().getDouble("throw.roll.initial-scale", 0.55);
-        double airDrag = clamp(plugin.getConfig().getDouble("throw.physics.air-drag", 0.99), 0.85, 1.0);
-        double restitution = clamp(plugin.getConfig().getDouble("throw.physics.bounce.restitution", bounceFactor), 0.0, 1.0);
-        double surfaceFriction = clamp(plugin.getConfig().getDouble("throw.physics.bounce.friction", 0.2), 0.0, 1.0);
+        double airDrag = clamp(plugin.getConfig().getDouble("throw.physics.air-drag", 0.99), 0.85);
+        double restitution = clamp(plugin.getConfig().getDouble("throw.physics.bounce.restitution", bounceFactor), 0.0);
+        double surfaceFriction = clamp(plugin.getConfig().getDouble("throw.physics.bounce.friction", 0.2), 0.0);
         int maxBounces = Math.max(0, plugin.getConfig().getInt("throw.physics.bounce.max-bounces", 3));
         double minBounceSpeed = Math.max(0.01, plugin.getConfig().getDouble("throw.physics.bounce.min-speed", 0.25));
 
@@ -257,7 +257,7 @@ public final class BallThrower {
                         display.teleport(snapAboveGround(bumped));
                         current.getWorld().playSound(hitLoc, Sound.BLOCK_AMETHYST_BLOCK_HIT, 0.35f, 1.4f);
 
-                        double remainingRatio = clamp((stepLen - blkDist) / Math.max(0.0001, stepLen), 0.0, 1.0);
+                        double remainingRatio = clamp((stepLen - blkDist) / Math.max(0.0001, stepLen), 0.0);
                         if (remainingRatio > 0.01) {
                             Location after = display.getLocation().clone().add(newVel.clone().multiply(remainingRatio));
                             display.teleport(snapAboveGround(after));
@@ -333,7 +333,7 @@ public final class BallThrower {
             onImpactGround(player, data, originalBall, hitLoc, null, null);
             return;
         }
-        if (!checkWorldAllowed(hitLoc.getWorld(), "capture")) {
+        if (checkWorldAllowed(hitLoc.getWorld(), "capture")) {
             send(player, "messages.capture.invalid-world", "&c当前世界不允许捕捉。");
             returnBall(player, originalBall, hitLoc);
             logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), hitLoc, "DENIED", "invalid_world"));
@@ -385,7 +385,7 @@ public final class BallThrower {
                 if (bytes > maxBytes) {
                     returnBall(player, originalBall, hitLoc);
                     String msg = plugin.getConfig().getString("messages.capture.too-large", "&c捕捉失败：数据过大。");
-                    if (msg != null && !msg.isBlank() && player != null && player.isOnline()) {
+                    if (!msg.isBlank() && player.isOnline()) {
                         player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
                     }
                     logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), hitLoc, "FAIL", "too_large"));
@@ -410,10 +410,6 @@ public final class BallThrower {
         }.runTaskTimer(plugin, 0L, 1L);
     }
 
-    private void onImpactGround(Player player, BallData data, Location hitLoc) {
-        onImpactGround(player, data, null, hitLoc, null, null);
-    }
-
     private void onImpactGround(Player player, BallData data, ItemStack originalBall, Location hitLoc, Block hitBlock, BlockFace hitFace) {
         Location finalLoc = snapAboveGround(hitLoc.clone());
         if (plugin.getConfig().getBoolean("throw.impact.enabled", true)) {
@@ -425,21 +421,21 @@ public final class BallThrower {
             returnBall(player, originalBall != null ? originalBall : itemFactory.createEmptyBall(), finalLoc);
             return;
         }
-        if (!checkWorldAllowed(finalLoc.getWorld(), "release")) {
+        if (checkWorldAllowed(finalLoc.getWorld(), "release")) {
             send(player, "messages.release.invalid-world", "&c当前世界不允许放出。");
-            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall("未知", List.of(), data), finalLoc);
+            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "DENIED", "invalid_world"));
             return;
         }
         if (!isReleaseAllowed(player, finalLoc, hitBlock, hitFace)) {
-            send(player, "messages.protection.release", "&c该区域不允许放出。");
-            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall("未知", List.of(), data), finalLoc);
+            send(player, "messages.release.spawn-denied", "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。");
+            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "DENIED", "protection"));
             return;
         }
 
         if (data.entityType() == null || data.entityNbt() == null) {
-            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall("未知", List.of(), data), finalLoc);
+            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "FAIL", "invalid_data"));
             return;
         }
@@ -448,7 +444,7 @@ public final class BallThrower {
         try {
             type = EntityType.valueOf(data.entityType());
         } catch (Exception ex) {
-            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall("未知", List.of(), data), finalLoc);
+            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "FAIL", "invalid_entity_type"));
             return;
         }
@@ -458,15 +454,21 @@ public final class BallThrower {
         try {
             spawned = finalLoc.getWorld().spawnEntity(spawnLoc, type);
         } catch (Exception ex) {
-            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall("未知", List.of(), data), finalLoc);
+            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "FAIL", "spawn_failed"));
+            return;
+        }
+        if (spawned == null || !spawned.isValid() || spawned.isDead()) {
+            send(player, "messages.release.spawn-denied", "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。");
+            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
+            logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "DENIED", "spawn_denied"));
             return;
         }
 
         String snbt = NbtPayloadCodec.decodeToSnbt(data.entityNbt());
         if (!nbtBridge.loadFromSnbt(spawned, snbt)) {
             spawned.remove();
-            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall("未知", List.of(), data), finalLoc);
+            returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "FAIL", "nbt_failed"));
             return;
         }
@@ -489,7 +491,7 @@ public final class BallThrower {
         display.setInterpolationDuration(1);
 
         ItemStack stack = data.captured()
-                ? itemFactory.createFilledBall(" ", List.of(), data)
+                ? itemFactory.createFilledBall(Component.text(" "), List.of(), data)
                 : itemFactory.createEmptyBall();
         stack.setAmount(1);
         display.setItemStack(stack);
@@ -498,7 +500,7 @@ public final class BallThrower {
 
     private static ItemStack removeOneMainHand(Player player) {
         ItemStack held = player.getInventory().getItemInMainHand();
-        if (held == null || held.getType().isAir()) {
+        if (held.getType().isAir()) {
             return null;
         }
         ItemStack one = held.clone();
@@ -537,14 +539,17 @@ public final class BallThrower {
     }
 
     private static double hitDistance(Location from, RayTraceResult hit) {
-        if (hit == null || hit.getHitPosition() == null) {
+        if (hit == null) {
             return Double.MAX_VALUE;
+        } else {
+            hit.getHitPosition();
         }
         return hit.getHitPosition().distance(from.toVector());
     }
 
     private static Location toHitLocation(Location from, RayTraceResult hit) {
-        if (hit != null && hit.getHitPosition() != null) {
+        if (hit != null) {
+            hit.getHitPosition();
             return hit.getHitPosition().toLocation(from.getWorld());
         }
         return from.clone();
@@ -562,25 +567,23 @@ public final class BallThrower {
                 FluidCollisionMode.NEVER,
                 true
         );
-        if (down != null && down.getHitPosition() != null) {
+        if (down != null) {
+            down.getHitPosition();
             return down.getHitPosition().toLocation(loc.getWorld()).add(0, 0.03, 0);
         }
         return loc.clone().add(0, 0.03, 0);
     }
 
-    private static double clamp(double v, double min, double max) {
+    private static double clamp(double v, double min) {
         if (v < min) {
             return min;
         }
-        if (v > max) {
-            return max;
-        }
-        return v;
+        return Math.min(v, 1.0);
     }
 
     private boolean checkWorldAllowed(World world, String section) {
         if (world == null) {
-            return false;
+            return true;
         }
         String enabledPath = section + ".enabled-worlds";
         String disabledPath = section + ".disabled-worlds";
@@ -594,15 +597,15 @@ public final class BallThrower {
         Set<String> disabled = disabledList.stream().map(s -> s.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
         String current = world.getName().toLowerCase(Locale.ROOT);
         if (!enabled.isEmpty() && !enabled.contains(current)) {
-            return false;
+            return true;
         }
-        return !disabled.contains(current);
+        return disabled.contains(current);
     }
 
     private boolean checkCooldown(Player player) {
         long now = System.currentTimeMillis();
         Long until = cooldownUntil.get(player.getUniqueId());
-        return until == null || now >= until;
+        return until != null && now < until;
     }
 
     private void markCooldown(Player player, boolean forRelease) {
@@ -611,7 +614,7 @@ public final class BallThrower {
                 ? plugin.getConfig().getInt(path, 8)
                 : plugin.getConfig().getInt("capture.cooldown-ticks", 8);
         ticks = Math.max(0, ticks);
-        if (ticks <= 0) {
+        if (ticks == 0) {
             cooldownUntil.remove(player.getUniqueId());
             return;
         }
@@ -649,10 +652,7 @@ public final class BallThrower {
             return true;
         }
         boolean requireBuild = plugin.getConfig().getBoolean("protection.capture-requires-build", false);
-        if (requireBuild) {
-            return ProtectionHooks.canBuild(player, entity.getLocation().getBlock());
-        }
-        return ProtectionHooks.canInteractEntity(player, entity);
+        return ProtectionHooks.canCapture(player, entity, requireBuild);
     }
 
     private boolean isReleaseAllowed(Player player, Location loc, Block hitBlock, BlockFace hitFace) {
@@ -665,10 +665,7 @@ public final class BallThrower {
         boolean requireBuild = plugin.getConfig().getBoolean("protection.release-requires-build", false);
         Block block = hitBlock != null ? hitBlock : loc.getBlock();
         BlockFace face = hitFace != null ? hitFace : BlockFace.UP;
-        if (requireBuild) {
-            return ProtectionHooks.canBuild(player, block);
-        }
-        return ProtectionHooks.canInteractBlock(player, block, face);
+        return ProtectionHooks.canRelease(player, loc, requireBuild);
     }
 
     private void send(Player player, String path, String fallback) {

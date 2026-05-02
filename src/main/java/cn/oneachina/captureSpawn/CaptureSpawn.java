@@ -14,12 +14,16 @@ import cn.oneachina.captureSpawn.listener.CraftPermissionListener;
 import cn.oneachina.captureSpawn.listener.DirectInteractListener;
 import cn.oneachina.captureSpawn.logging.BallLogService;
 import cn.oneachina.captureSpawn.nbt.NbtApiBridge;
+import cn.oneachina.captureSpawn.protection.ProtectionHooks;
+import cn.oneachina.captureSpawn.protection.ResidenceFlagListener;
 import cn.oneachina.captureSpawn.throwing.BallThrower;
 import cn.oneachina.captureSpawn.throwing.PacketEventsThrowListener;
 import org.bukkit.NamespacedKey;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.Objects;
 
 public final class CaptureSpawn extends JavaPlugin {
     private Keys keys;
@@ -32,6 +36,7 @@ public final class CaptureSpawn extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        ProtectionHooks.init(this);
 
         this.keys = new Keys(this);
         this.itemFactory = new ItemFactory(this, keys);
@@ -41,8 +46,8 @@ public final class CaptureSpawn extends JavaPlugin {
 
         if (getCommand("capturespawn") != null) {
             CaptureSpawnCommand cmd = new CaptureSpawnCommand(this, logService);
-            getCommand("capturespawn").setExecutor(cmd);
-            getCommand("capturespawn").setTabCompleter(cmd);
+            Objects.requireNonNull(getCommand("capturespawn")).setExecutor(cmd);
+            Objects.requireNonNull(getCommand("capturespawn")).setTabCompleter(cmd);
         }
         registerRuntimeComponents();
 
@@ -59,6 +64,7 @@ public final class CaptureSpawn extends JavaPlugin {
     public boolean reloadPlugin() {
         try {
             reloadConfig();
+            ProtectionHooks.init(this);
             unregisterPacketEventsListener();
             HandlerList.unregisterAll(this);
             if (logService != null) {
@@ -78,21 +84,16 @@ public final class CaptureSpawn extends JavaPlugin {
         this.emptyBallRecipeKey = recipeManager.registerEmptyBallRecipe();
 
         PluginManager pm = getServer().getPluginManager();
+        pm.registerEvents(new ResidenceFlagListener(this), this);
         pm.registerEvents(new CraftPermissionListener(this, emptyBallRecipeKey), this);
         BallItemService ballItemService = new BallItemService(keys);
         pm.registerEvents(new BallBlockPlaceListener(this, ballItemService), this);
         pm.registerEvents(new BallDropReleaseListener(this, ballItemService, itemFactory, nbtApiBridge, logService), this);
         EntityInfoFormatter formatter = new EntityInfoFormatter();
         String mode = getConfig().getString("interaction-mode", "THROW");
-        if (mode != null && mode.equalsIgnoreCase("THROW")) {
-            if (PacketEvents.getAPI() == null) {
-                getLogger().warning("PacketEvents API is not available. THROW mode will not work.");
-                getConfig().set("interaction-mode", "DIRECT");
-                pm.registerEvents(new DirectInteractListener(this, ballItemService, itemFactory, nbtApiBridge, formatter, logService), this);
-                return;
-            }
+        if (mode.equalsIgnoreCase("THROW")) {
             BallThrower thrower = new BallThrower(this, ballItemService, itemFactory, nbtApiBridge, formatter, logService);
-            this.packetEventsThrowListener = new PacketEventsThrowListener(this, thrower);
+            this.packetEventsThrowListener = new PacketEventsThrowListener(this, thrower, ballItemService);
             PacketEvents.getAPI().getEventManager().registerListener(packetEventsThrowListener);
         } else {
             pm.registerEvents(new DirectInteractListener(this, ballItemService, itemFactory, nbtApiBridge, formatter, logService), this);
@@ -103,13 +104,7 @@ public final class CaptureSpawn extends JavaPlugin {
         if (packetEventsThrowListener == null) {
             return;
         }
-        if (PacketEvents.getAPI() != null) {
-            PacketEvents.getAPI().getEventManager().unregisterListener(packetEventsThrowListener);
-        }
+        PacketEvents.getAPI().getEventManager().unregisterListener(packetEventsThrowListener);
         packetEventsThrowListener = null;
-    }
-
-    public Keys keys() {
-        return keys;
     }
 }

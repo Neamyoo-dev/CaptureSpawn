@@ -42,7 +42,7 @@ public final class CraftPermissionListener implements Listener {
         }
 
         String perm = plugin.getConfig().getString("craft.permission", "capturespawn.craft");
-        if (perm != null && !perm.isBlank() && !player.hasPermission(perm)) {
+        if (!perm.isBlank() && !player.hasPermission(perm)) {
             event.getInventory().setResult(new ItemStack(Material.AIR));
         }
     }

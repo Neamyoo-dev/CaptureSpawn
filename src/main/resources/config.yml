@@ -89,6 +89,18 @@ protection:
   enabled: true
   capture-requires-build: true
   release-requires-build: true
+  residence:
+    enabled: true
+    default-value: true
+    require-installed: false
+    capture-build-flags: ["build"]
+    capture-interact-flags: ["use"]
+    release-build-flags: ["build"]
+    release-interact-flags: ["use"]
+    custom:
+      enabled: true
+      capture-flag: "capturespawn_capture"
+      release-flag: "capturespawn_release"
 
 recipe:
   enabled: true
@@ -108,6 +120,13 @@ craft:
   require-permission: false
   permission: "capturespawn.craft"
 
+permissions:
+  capture: "capturespawn_capture"
+  release: "capturespawn_release"
+  bypass-blacklist: "capturespawn.bypass.blacklist"
+  reload: "capturespawn.reload"
+  log: "capturespawn.log"
+
 messages:
   capture:
     success: "&a捕捉成功。"
@@ -126,6 +145,7 @@ messages:
     invalid-data: "&c放出失败：球内数据损坏。"
     no-space: "&c放出失败：没有安全空间。"
     spawn-failed: "&c放出失败：无法生成实体。"
+    spawn-denied: "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。"
     nbt-failed: "&c放出失败：NBT 恢复失败。"
   ball-cannot-place: "&e精灵球不能被放置为方块。"
   protection:

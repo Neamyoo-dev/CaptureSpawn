@@ -51,7 +51,7 @@ public final class BallDropReleaseListener implements Listener {
             return;
         }
         if (plugin.getConfig().getBoolean("release.require-permission", true)
-                && !event.getPlayer().hasPermission("capturespawn.release")) {
+                && !event.getPlayer().hasPermission(resolvePerm("permissions.release", "capturespawn.release"))) {
             return;
         }
 
@@ -81,7 +81,7 @@ public final class BallDropReleaseListener implements Listener {
 
                 Player player = event.getPlayer();
                 if (!isReleaseAllowed(player, safe)) {
-                    send(player, "messages.protection.release", "&c该区域不允许放出。");
+                    send(player, "messages.release.spawn-denied", "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。");
                     logService.log(BallLogEntry.of(playerRef(player), "DROP_RELEASE", data.entityType(), safe, "DENIED", "protection"));
                     cancel();
                     return;
@@ -101,6 +101,12 @@ public final class BallDropReleaseListener implements Listener {
                     spawned = safe.getWorld().spawnEntity(safe, type);
                 } catch (Exception ex) {
                     logService.log(BallLogEntry.of(playerRef(player), "DROP_RELEASE", data.entityType(), safe, "FAIL", "spawn_failed"));
+                    cancel();
+                    return;
+                }
+                if (spawned == null || !spawned.isValid() || spawned.isDead()) {
+                    send(player, "messages.release.spawn-denied", "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。");
+                    logService.log(BallLogEntry.of(playerRef(player), "DROP_RELEASE", data.entityType(), safe, "DENIED", "spawn_denied"));
                     cancel();
                     return;
                 }
@@ -170,10 +176,7 @@ public final class BallDropReleaseListener implements Listener {
             return true;
         }
         boolean requireBuild = plugin.getConfig().getBoolean("protection.release-requires-build", false);
-        if (requireBuild) {
-            return ProtectionHooks.canBuild(player, loc.getBlock());
-        }
-        return ProtectionHooks.canInteractBlock(player, loc.getBlock(), BlockFace.UP);
+        return ProtectionHooks.canRelease(player, loc, requireBuild);
     }
 
     private void send(Player player, String path, String fallback) {
@@ -192,5 +195,13 @@ public final class BallDropReleaseListener implements Listener {
             return new BallLogEntry.PlayerRef(null, "");
         }
         return new BallLogEntry.PlayerRef(player.getUniqueId(), player.getName());
+    }
+
+    private String resolvePerm(String path, String fallback) {
+        String perm = plugin.getConfig().getString(path, fallback);
+        if (perm == null || perm.isBlank()) {
+            return fallback;
+        }
+        return perm;
     }
 }

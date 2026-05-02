@@ -1,97 +1,139 @@
 package cn.oneachina.captureSpawn.protection;
 
 import org.bukkit.Bukkit;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
+import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.Event;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
-import java.lang.reflect.Constructor;
+import java.util.List;
+import java.util.Locale;
 
 public final class ProtectionHooks {
+    private static Plugin plugin;
+
     private ProtectionHooks() {
     }
 
-    public static boolean canInteractEntity(Player player, Entity entity) {
-        Event event = createInteractEntityEvent(player, entity);
-        return event == null || callCancellable(event);
+    public static void init(Plugin plugin) {
+        ProtectionHooks.plugin = plugin;
+        registerResidenceCustomFlags();
     }
 
-    public static boolean canInteractBlock(Player player, Block block, BlockFace face) {
-        Event event = createInteractBlockEvent(player, block, face);
-        return event == null || callCancellable(event);
+    public static void refreshResidenceCustomFlags() {
+        registerResidenceCustomFlags();
     }
 
-    public static boolean canBuild(Player player, Block block) {
-        if (player == null || block == null) {
+    public static boolean canCapture(Player player, Entity entity, boolean requireBuild) {
+        if (player == null || entity == null) {
             return false;
         }
-        BlockBreakEvent event = new BlockBreakEvent(block, player);
-        Bukkit.getPluginManager().callEvent(event);
-        return !event.isCancelled();
+        Boolean res = residenceAllows(
+                player,
+                entity.getLocation(),
+                requireBuild ? "protection.residence.capture-build-flags" : "protection.residence.capture-interact-flags",
+                "protection.residence.custom.capture-flag"
+        );
+        return res != null ? res : !requireResidenceOnly();
     }
 
-    private static boolean callCancellable(Event event) {
-        Bukkit.getPluginManager().callEvent(event);
-        if (event instanceof Cancellable cancellable) {
-            return !cancellable.isCancelled();
+    public static boolean canRelease(Player player, Location location, boolean requireBuild) {
+        if (player == null || location == null) {
+            return false;
         }
-        return true;
+        Boolean res = residenceAllows(
+                player,
+                location,
+                requireBuild ? "protection.residence.release-build-flags" : "protection.residence.release-interact-flags",
+                "protection.residence.custom.release-flag"
+        );
+        return res != null ? res : !requireResidenceOnly();
     }
 
-    private static Event createInteractEntityEvent(Player player, Entity entity) {
-        try {
-            return new PlayerInteractEntityEvent(player, entity, EquipmentSlot.HAND);
-        } catch (Throwable ignored) {
+    private static Boolean residenceAllows(Player player, Location loc, String flagsPath, String customFlagPath) {
+        if (!isResidenceEnabled() || !isResidenceInstalled()) {
+            return requireResidenceOnly() ? Boolean.FALSE : null;
         }
-        try {
-            return new PlayerInteractEntityEvent(player, entity);
-        } catch (Throwable ignored) {
+        if (!checkResidenceCustomFlag(player, loc, customFlagPath)) {
+            return Boolean.FALSE;
         }
-        return null;
+        return checkResidenceFlags(player, loc, flagsPath) ? Boolean.TRUE : Boolean.FALSE;
     }
 
-    private static Event createInteractBlockEvent(Player player, Block block, BlockFace face) {
-        ItemStack item = player.getInventory().getItemInMainHand();
-        try {
-            return new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, item, block, face, EquipmentSlot.HAND);
-        } catch (Throwable ignored) {
+    private static boolean checkResidenceFlags(Player player, Location loc, String flagsPath) {
+        List<String> flags = plugin.getConfig().getStringList(flagsPath);
+        if (flags.isEmpty()) {
+            return true;
         }
+        boolean defaultValue = plugin.getConfig().getBoolean("protection.residence.default-value", true);
         try {
-            return new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, item, block, face);
-        } catch (Throwable ignored) {
-        }
-        try {
-            Class<?> clazz = Class.forName("org.bukkit.event.player.PlayerInteractEvent");
-            for (Constructor<?> ctor : clazz.getConstructors()) {
-                Class<?>[] p = ctor.getParameterTypes();
-                if (p.length < 5) {
+            for (String f : flags) {
+                if (f == null || f.isBlank()) {
                     continue;
                 }
-                if (p[0] != Player.class || p[1] != Action.class) {
-                    continue;
+                com.bekvon.bukkit.residence.containers.Flags flag;
+                try {
+                    flag = com.bekvon.bukkit.residence.containers.Flags.valueOf(f.trim().toLowerCase(Locale.ROOT));
+                } catch (Exception ex) {
+                    return false;
                 }
-                Object[] args = new Object[p.length];
-                args[0] = player;
-                args[1] = Action.RIGHT_CLICK_BLOCK;
-                args[2] = item;
-                args[3] = block;
-                args[4] = face;
-                if (p.length >= 6 && p[5] == EquipmentSlot.class) {
-                    args[5] = EquipmentSlot.HAND;
+                if (!com.bekvon.bukkit.residence.protection.FlagPermissions.has(loc, player, flag, defaultValue)) {
+                    return false;
                 }
-                return (Event) ctor.newInstance(args);
             }
-        } catch (Throwable ignored) {
+            return true;
+        } catch (NoClassDefFoundError | Exception ignored) {
+            return false;
         }
-        return null;
+    }
+
+    private static boolean checkResidenceCustomFlag(Player player, Location loc, String customFlagPath) {
+        if (!plugin.getConfig().getBoolean("protection.residence.custom.enabled", true)) {
+            return true;
+        }
+        String customFlag = plugin.getConfig().getString(customFlagPath, "");
+        if (customFlag.isBlank()) {
+            return true;
+        }
+        boolean defaultValue = plugin.getConfig().getBoolean("protection.residence.default-value", true);
+        try {
+            com.bekvon.bukkit.residence.protection.FlagPermissions perms = com.bekvon.bukkit.residence.protection.FlagPermissions.getPerms(loc, player);
+            return perms != null && perms.playerHas(player.getUniqueId(), player.getName(), customFlag.trim(), defaultValue);
+        } catch (NoClassDefFoundError | Exception ignored) {
+            return true;
+        }
+    }
+
+    private static void registerResidenceCustomFlags() {
+        if (plugin == null || !plugin.getConfig().getBoolean("protection.residence.custom.enabled", true)) {
+            return;
+        }
+        if (!Bukkit.getPluginManager().isPluginEnabled("Residence")) {
+            return;
+        }
+
+        try {
+            String capture = plugin.getConfig().getString("protection.residence.custom.capture-flag", "");
+            String release = plugin.getConfig().getString("protection.residence.custom.release-flag", "");
+            if (!capture.isBlank()) {
+                com.bekvon.bukkit.residence.protection.FlagPermissions.addFlag(capture.trim());
+            }
+            if (!release.isBlank()) {
+                com.bekvon.bukkit.residence.protection.FlagPermissions.addFlag(release.trim());
+            }
+        } catch (NoClassDefFoundError | Exception ignored) {
+        }
+    }
+
+    private static boolean isResidenceEnabled() {
+        return plugin != null && plugin.getConfig().getBoolean("protection.residence.enabled", true);
+    }
+
+    private static boolean requireResidenceOnly() {
+        return plugin != null && plugin.getConfig().getBoolean("protection.residence.require-installed", false);
+    }
+
+    private static boolean isResidenceInstalled() {
+        return Bukkit.getPluginManager().getPlugin("Residence") != null;
     }
 }
