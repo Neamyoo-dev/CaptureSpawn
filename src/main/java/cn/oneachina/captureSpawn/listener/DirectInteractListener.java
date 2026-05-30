@@ -9,9 +9,12 @@ import cn.oneachina.captureSpawn.logging.BallLogEntry;
 import cn.oneachina.captureSpawn.logging.BallLogService;
 import cn.oneachina.captureSpawn.nbt.NbtApiBridge;
 import cn.oneachina.captureSpawn.nbt.NbtPayloadCodec;
+import cn.oneachina.captureSpawn.protection.OwnerUtil;
 import cn.oneachina.captureSpawn.protection.ProtectionHooks;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -107,8 +110,12 @@ public final class DirectInteractListener implements Listener {
                 return;
             }
         }
+        if (!checkOwner(player, living)) {
+            logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), living.getLocation(), "DENIED", "not_owner"));
+            return;
+        }
 
-        String snbt = nbtBridge.saveToSnbt(living);
+        String snbt = nbtBridge.saveToSnbt(living, event.getPlayer());
         if (snbt == null || snbt.isBlank()) {
             send(player, "messages.capture.nbt-failed", "&c捕捉失败：NBT 读取失败。");
             logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), living.getLocation(), "FAIL", "save_nbt_failed"));
@@ -216,7 +223,7 @@ public final class DirectInteractListener implements Listener {
         }
 
         String snbt = NbtPayloadCodec.decodeToSnbt(data.entityNbt());
-        if (!nbtBridge.loadFromSnbt(spawned, snbt)) {
+        if (nbtBridge.loadFromSnbt(spawned, snbt, player)) {
             spawned.remove();
             send(player, "messages.release.nbt-failed", "&c放出失败：NBT 恢复失败。");
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), releaseLoc, "FAIL", "nbt_failed"));
@@ -296,6 +303,28 @@ public final class DirectInteractListener implements Listener {
         }
         Set<String> deny = blacklist.stream().map(s -> s.toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
         return !deny.contains(type.name());
+    }
+
+    private boolean checkOwner(Player player, LivingEntity entity) {
+        if (!plugin.getConfig().getBoolean("capture.owner-protection.enabled", true)) {
+            return true;
+        }
+        UUID ownerUuid = OwnerUtil.getEntityOwner(entity);
+        if (ownerUuid == null) {
+            return true;
+        }
+        if (ownerUuid.equals(player.getUniqueId())) {
+            return true;
+        }
+        if (player.hasPermission(resolvePerm("permissions.bypass-owner", "capturespawn.bypass.owner"))) {
+            return true;
+        }
+        OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerUuid);
+        String ownerName = owner.getName() != null ? owner.getName() : ownerUuid.toString();
+        String template = plugin.getConfig().getString("messages.capture.not-owner", "&c你不能捕捉属于 &e{owner}&c 的驯养生物！");
+        String msg = template.replace("{owner}", ownerName);
+        player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
+        return false;
     }
 
     private Location resolveReleaseLocation(Player player, PlayerInteractEvent event) {

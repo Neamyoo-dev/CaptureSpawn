@@ -74,6 +74,8 @@ capture:
     - ARMOR_STAND
     - ENDER_DRAGON
     - WITHER
+  owner-protection:
+    enabled: true
 
 storage:
   nbt-format: GZIP_BASE64
@@ -124,6 +126,7 @@ permissions:
   capture: "capturespawn_capture"
   release: "capturespawn_release"
   bypass-blacklist: "capturespawn.bypass.blacklist"
+  bypass-owner: "capturespawn.bypass.owner"
   reload: "capturespawn.reload"
   log: "capturespawn.log"
 
@@ -137,6 +140,7 @@ messages:
     nbt-failed: "&c捕捉失败：NBT 读取失败。"
     too-large: "&c捕捉失败：数据过大。"
     failed: "&c捕捉失败。"
+    not-owner: "&c你不能捕捉属于 &e{owner}&c 的驯养生物！"
   release:
     success: "&a放出成功。"
     cooldown: "&e冷却中，请稍后再试。"

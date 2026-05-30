@@ -9,10 +9,13 @@ import cn.oneachina.captureSpawn.logging.BallLogEntry;
 import cn.oneachina.captureSpawn.logging.BallLogService;
 import cn.oneachina.captureSpawn.nbt.NbtApiBridge;
 import cn.oneachina.captureSpawn.nbt.NbtPayloadCodec;
+import cn.oneachina.captureSpawn.protection.OwnerUtil;
 import cn.oneachina.captureSpawn.protection.ProtectionHooks;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -351,6 +354,11 @@ public final class BallThrower {
             logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), hitLoc, "FAIL", "type_blocked"));
             return;
         }
+        if (!checkOwner(player, living)) {
+            returnBall(player, originalBall, hitLoc);
+            logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), hitLoc, "DENIED", "not_owner"));
+            return;
+        }
 
         int captureAnimTicks = Math.max(1, plugin.getConfig().getInt("throw.capture-animation-ticks", 6));
         new BukkitRunnable() {
@@ -371,7 +379,7 @@ public final class BallThrower {
                     return;
                 }
 
-                String snbt = nbtBridge.saveToSnbt(living);
+                String snbt = nbtBridge.saveToSnbt(living, player);
                 if (snbt == null || snbt.isBlank()) {
                     returnBall(player, originalBall, hitLoc);
                     logService.log(BallLogEntry.of(playerRef(player), "CAPTURE", living.getType().name(), hitLoc, "FAIL", "save_nbt_failed"));
@@ -466,7 +474,7 @@ public final class BallThrower {
         }
 
         String snbt = NbtPayloadCodec.decodeToSnbt(data.entityNbt());
-        if (!nbtBridge.loadFromSnbt(spawned, snbt)) {
+        if (nbtBridge.loadFromSnbt(spawned, snbt, player)) {
             spawned.remove();
             returnBall(player, originalBall != null ? originalBall : itemFactory.createFilledBall(Component.text("未知"), List.of(), data), finalLoc);
             logService.log(BallLogEntry.of(playerRef(player), "RELEASE", data.entityType(), finalLoc, "FAIL", "nbt_failed"));
@@ -653,6 +661,28 @@ public final class BallThrower {
         }
         boolean requireBuild = plugin.getConfig().getBoolean("protection.capture-requires-build", false);
         return ProtectionHooks.canCapture(player, entity, requireBuild);
+    }
+
+    private boolean checkOwner(Player player, LivingEntity entity) {
+        if (!plugin.getConfig().getBoolean("capture.owner-protection.enabled", true)) {
+            return true;
+        }
+        UUID ownerUuid = OwnerUtil.getEntityOwner(entity);
+        if (ownerUuid == null) {
+            return true;
+        }
+        if (ownerUuid.equals(player.getUniqueId())) {
+            return true;
+        }
+        if (player.hasPermission("capturespawn.bypass.owner")) {
+            return true;
+        }
+        OfflinePlayer owner = Bukkit.getOfflinePlayer(ownerUuid);
+        String ownerName = owner.getName() != null ? owner.getName() : ownerUuid.toString();
+        String template = plugin.getConfig().getString("messages.capture.not-owner", "&c你不能捕捉属于 &e{owner}&c 的驯养生物！");
+        String msg = template.replace("{owner}", ownerName);
+        player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
+        return false;
     }
 
     private boolean isReleaseAllowed(Player player, Location loc, Block hitBlock, BlockFace hitFace) {
