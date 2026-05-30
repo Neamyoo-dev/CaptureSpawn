@@ -1,7 +1,7 @@
 name: CaptureSpawn
-version: '0.1.5'
+version: '0.2.0'
 main: cn.oneachina.captureSpawn.CaptureSpawn
-api-version: '26.1'
+api-version: '1.21'
 prefix: CaptureSpwan
 authors: [ oneachina ]
 depend: [NBTAPI, packetevents]
