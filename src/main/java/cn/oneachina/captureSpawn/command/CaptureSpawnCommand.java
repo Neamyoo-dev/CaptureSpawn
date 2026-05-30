@@ -34,6 +34,20 @@ public final class CaptureSpawnCommand implements TabExecutor {
             sender.sendMessage(ChatColor.YELLOW + "用法: /capturespawn reload | /capturespawn log <玩家|me> <开始时间> [结束时间] [release|capture|all] [数量]");
             return true;
         }
+        if (args[0].equalsIgnoreCase("debug")) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage(ChatColor.RED + "只有玩家可以使用此命令。");
+                return true;
+            }
+            if (!sender.hasPermission("capturespawn.debug")) {
+                sender.sendMessage(ChatColor.RED + "你没有权限执行该命令。");
+                return true;
+            }
+            Player player = (Player) sender;
+            boolean nowOn = plugin.toggleDebug(player);
+            player.sendMessage(ChatColor.GREEN + "Debug 模式已" + (nowOn ? "开启" : "关闭") + "，将会在聊天栏显示 NBT 信息。");
+            return true;
+        }
         if (args[0].equalsIgnoreCase("reload")) {
             if (!sender.hasPermission("capturespawn.reload")) {
                 sender.sendMessage(ChatColor.RED + "你没有权限执行该命令。");
@@ -114,7 +128,7 @@ public final class CaptureSpawnCommand implements TabExecutor {
             return List.of();
         }
         if (args.length == 1) {
-            return filterPrefix(Arrays.asList("reload", "log"), args[0]);
+            return filterPrefix(Arrays.asList("reload", "log", "debug"), args[0]);
         }
         if (args.length >= 2 && args[0].equalsIgnoreCase("log")) {
             if (args.length == 2) {

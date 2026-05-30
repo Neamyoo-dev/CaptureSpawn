@@ -18,12 +18,15 @@ import cn.oneachina.captureSpawn.protection.ProtectionHooks;
 import cn.oneachina.captureSpawn.protection.ResidenceFlagListener;
 import cn.oneachina.captureSpawn.throwing.BallThrower;
 import cn.oneachina.captureSpawn.throwing.PacketEventsThrowListener;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.Objects;
+import java.util.*;
 
 public final class CaptureSpawn extends JavaPlugin {
     private Keys keys;
@@ -32,6 +35,9 @@ public final class CaptureSpawn extends JavaPlugin {
     private NbtApiBridge nbtApiBridge;
     private PacketListenerCommon packetEventsThrowListener;
     private BallLogService logService;
+    public static CaptureSpawn instance;
+
+    private final Set<UUID> debugPlayers = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -51,6 +57,7 @@ public final class CaptureSpawn extends JavaPlugin {
         }
         registerRuntimeComponents();
 
+        instance = this;
     }
 
     @Override
@@ -106,5 +113,27 @@ public final class CaptureSpawn extends JavaPlugin {
         }
         PacketEvents.getAPI().getEventManager().unregisterListener(packetEventsThrowListener);
         packetEventsThrowListener = null;
+    }
+
+    public boolean isDebugMode(Player player) {
+        return player != null && debugPlayers.contains(player.getUniqueId());
+    }
+
+    public boolean toggleDebug(Player player) {
+        if (player == null) return false;
+        UUID uuid = player.getUniqueId();
+        if (debugPlayers.contains(uuid)) {
+            debugPlayers.remove(uuid);
+            return false;
+        } else {
+            debugPlayers.add(uuid);
+            return true;
+        }
+    }
+
+    public void sendDebug(Player player, String message) {
+        if (isDebugMode(player)) {
+            player.sendMessage(Component.text( "[CaptureSpawn] [Debug] " + message, NamedTextColor.GRAY));
+        }
     }
 }

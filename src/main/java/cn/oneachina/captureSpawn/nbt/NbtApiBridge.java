@@ -1,9 +1,11 @@
 package cn.oneachina.captureSpawn.nbt;
 
+import cn.oneachina.captureSpawn.CaptureSpawn;
 import de.tr7zw.nbtapi.NBT;
 import de.tr7zw.nbtapi.iface.ReadWriteNBT;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -15,27 +17,41 @@ public final class NbtApiBridge {
         }
     }
 
-    public String saveToSnbt(Entity bukkitEntity) {
+    public String saveToSnbt(Entity bukkitEntity, Player caller) {
         try {
             ReadWriteNBT nbt = NBT.createNBTObject();
             NBT.get(bukkitEntity, nbt::mergeCompound);
-            return nbt.toString();
+            String snbt = nbt.toString();
+
+            if (caller != null) {
+                CaptureSpawn.instance.sendDebug(caller, "saved entity SNBT: " + snbt);
+            }
+            return snbt;
         } catch (Exception ex) {
+            if (caller != null) {
+                CaptureSpawn.instance.sendDebug(caller, "saved SNBT unsuccessfully: " + ex.getMessage());
+            }
             return null;
         }
     }
 
-    public boolean loadFromSnbt(Entity bukkitEntity, String snbt) {
+    public boolean loadFromSnbt(Entity bukkitEntity, String snbt, Player caller) {
         if (snbt == null || snbt.isBlank()) {
-            return false;
+            return true;
         }
         try {
             ReadWriteNBT tag = NBT.parseNBT(snbt);
             sanitize(tag);
+            if (caller != null) {
+                CaptureSpawn.instance.sendDebug(caller, "loading NBT: " + tag);
+            }
             NBT.modify(bukkitEntity, (Consumer<ReadWriteNBT>) nbt -> nbt.mergeCompound(tag));
-            return true;
-        } catch (Exception ex) {
             return false;
+        } catch (Exception ex) {
+            if (caller != null) {
+                CaptureSpawn.instance.sendDebug(caller, "loaded SNBT unsuccessfully: " + ex.getMessage());
+            }
+            return true;
         }
     }
 

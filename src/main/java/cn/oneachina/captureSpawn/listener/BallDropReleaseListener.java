@@ -12,7 +12,6 @@ import cn.oneachina.captureSpawn.protection.ProtectionHooks;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
@@ -104,7 +103,7 @@ public final class BallDropReleaseListener implements Listener {
                     cancel();
                     return;
                 }
-                if (spawned == null || !spawned.isValid() || spawned.isDead()) {
+                if (!spawned.isValid() || spawned.isDead()) {
                     send(player, "messages.release.spawn-denied", "&c由于权限原因生成失败（检查领地设置是否开启允许自定义怪物生成）。");
                     logService.log(BallLogEntry.of(playerRef(player), "DROP_RELEASE", data.entityType(), safe, "DENIED", "spawn_denied"));
                     cancel();
@@ -112,7 +111,7 @@ public final class BallDropReleaseListener implements Listener {
                 }
 
                 String snbt = NbtPayloadCodec.decodeToSnbt(data.entityNbt());
-                if (!nbtBridge.loadFromSnbt(spawned, snbt)) {
+                if (nbtBridge.loadFromSnbt(spawned, snbt, player)) {
                     spawned.remove();
                     logService.log(BallLogEntry.of(playerRef(player), "DROP_RELEASE", data.entityType(), safe, "FAIL", "nbt_failed"));
                     cancel();
