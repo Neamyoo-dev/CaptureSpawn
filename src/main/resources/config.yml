@@ -57,7 +57,7 @@ release:
   enabled-worlds: []
   disabled-worlds: []
   safe-spawn: true
-  consume-filled: false
+  consume-filled: true
   drop:
     enabled: true
     require-on-ground: true

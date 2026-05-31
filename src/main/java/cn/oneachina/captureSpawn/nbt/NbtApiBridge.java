@@ -71,10 +71,16 @@ public final class NbtApiBridge {
                 "WorldUUIDMost",
                 "WorldUUIDLeast",
                 "Dimension",
-                "id"
+                "id",
+                "HandItems",
+                "ArmorItems",
+                "HandDropChances",
+                "ArmorDropChances",
+                "Attributes"
         );
         for (String key : removeKeys) {
             compoundTag.removeKey(key);
         }
+        compoundTag.setBoolean("CanPickUpLoot", false);
     }
 }
