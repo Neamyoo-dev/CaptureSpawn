@@ -45,7 +45,10 @@ public final class NbtApiBridge {
             if (caller != null) {
                 CaptureSpawn.instance.sendDebug(caller, "loading NBT: " + tag);
             }
-            NBT.modify(bukkitEntity, (Consumer<ReadWriteNBT>) nbt -> nbt.mergeCompound(tag));
+            NBT.modify(bukkitEntity, (Consumer<ReadWriteNBT>) nbt -> {
+                stripNaturalEquipment(nbt);
+                nbt.mergeCompound(tag);
+            });
             return false;
         } catch (Exception ex) {
             if (caller != null) {
@@ -79,5 +82,12 @@ public final class NbtApiBridge {
             compoundTag.removeKey(key);
         }
         compoundTag.setBoolean("CanPickUpLoot", false);
+    }
+
+    private void stripNaturalEquipment(ReadWriteNBT entityNbt) {
+        entityNbt.removeKey("HandItems");
+        entityNbt.removeKey("ArmorItems");
+        entityNbt.removeKey("HandDropChances");
+        entityNbt.removeKey("ArmorDropChances");
     }
 }
