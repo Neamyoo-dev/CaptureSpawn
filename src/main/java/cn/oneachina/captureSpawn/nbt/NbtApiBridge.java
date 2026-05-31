@@ -72,11 +72,8 @@ public final class NbtApiBridge {
                 "WorldUUIDLeast",
                 "Dimension",
                 "id",
-                "HandItems",
-                "ArmorItems",
                 "HandDropChances",
-                "ArmorDropChances",
-                "Attributes"
+                "ArmorDropChances"
         );
         for (String key : removeKeys) {
             compoundTag.removeKey(key);
