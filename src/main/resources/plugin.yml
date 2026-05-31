@@ -1,5 +1,5 @@
 name: CaptureSpawn
-version: '0.2.0'
+version: '0.2.1'
 main: cn.oneachina.captureSpawn.CaptureSpawn
 api-version: '1.21'
 prefix: CaptureSpwan
